@@ -1,15 +1,26 @@
-export interface OrderItem {
-  productId: string
-  quantity: number
-  price: number
-}
-
 export interface Order {
   id: string
-  userId: string
-  items: OrderItem[]
-  total: number
-  status: 'pending' | 'processing' | 'shipped' | 'delivered'
-  createdAt: Date
-  updatedAt: Date
+  user_id: string
+  total_price: number
+  status: 'pending' | 'processing' | 'completed' | 'cancelled'
+  created_at: string
+  updated_at: string
+}
+
+export interface OrderItem {
+  id: string
+  order_id: string
+  product_id: string
+  quantity: number
+  price: number
+  created_at: string
+}
+
+export interface OrderWithItems extends Order {
+  order_items: OrderItem[]
+}
+
+export interface OrderInput {
+  total_price: number
+  status?: string
 }
