@@ -1,5 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  successResponse,
+  unauthorizedResponse,
+  errorResponse,
+} from '@/lib/api/responses'
+import { getErrorInfo } from '@/lib/api/errors'
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -24,10 +30,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error } = await supabase.auth.getUser()
 
     if (error || !user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
+      return unauthorizedResponse('Not authenticated')
     }
 
     // Get user profile
@@ -37,22 +40,16 @@ export async function GET(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        ...profile,
-      },
+    return successResponse({
+      id: user.id,
+      email: user.email,
+      ...profile,
     })
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return statusCode === 401
+      ? unauthorizedResponse(message)
+      : errorResponse(message, statusCode, details)
   }
 }

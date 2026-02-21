@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  paginationResponse,
+  successResponse,
+  validationErrorResponse,
+  errorResponse,
+} from '@/lib/api/responses'
+import {
+  handleDatabaseError,
+  validateRequiredFields,
+  getErrorInfo,
+} from '@/lib/api/errors'
 
 // Initialize Supabase client
 function getSupabaseClient() {
@@ -40,18 +51,14 @@ export async function GET(request: NextRequest) {
 
     // Validate sort order
     if (!['asc', 'desc'].includes(order)) {
-      return NextResponse.json(
-        { error: 'Invalid sort order. Must be "asc" or "desc"' },
-        { status: 400 }
-      )
+      return validationErrorResponse('Invalid sort order. Must be "asc" or "desc"')
     }
 
     // Validate sortBy field
     const validSortFields = ['price', 'name', 'created_at', 'stock']
     if (!validSortFields.includes(sortBy)) {
-      return NextResponse.json(
-        { error: `Invalid sort field. Must be one of: ${validSortFields.join(', ')}` },
-        { status: 400 }
+      return validationErrorResponse(
+        `Invalid sort field. Must be one of: ${validSortFields.join(', ')}`
       )
     }
 
@@ -81,42 +88,26 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch products', details: error.message },
-        { status: 500 }
-      )
+      throw handleDatabaseError(error)
     }
 
     // Calculate pagination metadata
     const totalPages = Math.ceil((count || 0) / limit)
 
-    return NextResponse.json({
-      success: true,
-      data: products || [],
-      pagination: {
-        total: count || 0,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
-      filters: {
-        category: category || null,
-        search: search || null,
-        sortBy,
-        order,
-      },
+    return paginationResponse(products || [], {
+      total: count || 0,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
     })
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return statusCode === 400
+      ? validationErrorResponse(message, details)
+      : errorResponse(message, statusCode, details)
   }
 }
 
@@ -132,21 +123,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     // Validate required fields
-    const { name, description, price, category, stock, calories, spicy_level, image_url } = body
-
-    if (!name || price === undefined) {
-      return NextResponse.json(
-        { error: 'Missing required fields: name and price' },
-        { status: 400 }
+    const validation = validateRequiredFields(body, ['name', 'price'])
+    if (!validation.valid) {
+      return validationErrorResponse(
+        `Missing required fields: ${validation.missingFields.join(', ')}`
       )
     }
 
+    const { name, description, price, category, stock, calories, spicy_level, image_url } = body
+
     // Validate price
     if (typeof price !== 'number' || price < 0) {
-      return NextResponse.json(
-        { error: 'Price must be a positive number' },
-        { status: 400 }
-      )
+      return validationErrorResponse('Price must be a positive number')
     }
 
     // Insert product
@@ -168,24 +156,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to create product', details: error.message },
-        { status: 500 }
-      )
+      throw handleDatabaseError(error)
     }
 
-    return NextResponse.json(
-      { success: true, message: 'Product created successfully', data: data?.[0] },
-      { status: 201 }
-    )
+    return successResponse(data?.[0], 201)
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return statusCode === 400
+      ? validationErrorResponse(message, details)
+      : errorResponse(message, statusCode, details)
   }
 }

@@ -1,5 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  successResponse,
+  validationErrorResponse,
+  errorResponse,
+} from '@/lib/api/responses'
+import {
+  isValidEmail,
+  getErrorInfo,
+  ValidationError,
+} from '@/lib/api/errors'
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -25,27 +35,17 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      )
+      throw new ValidationError('Email and password are required')
     }
 
     // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
+    if (!isValidEmail(email)) {
+      throw new ValidationError('Invalid email format')
     }
 
     // Validate password length
     if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
-        { status: 400 }
-      )
+      throw new ValidationError('Password must be at least 6 characters long')
     }
 
     // Sign up user
@@ -61,10 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (signUpError) {
       console.error('Signup error:', signUpError)
-      return NextResponse.json(
-        { error: signUpError.message || 'Failed to create account' },
-        { status: 400 }
-      )
+      throw new ValidationError(signUpError.message || 'Failed to create account')
     }
 
     // Create user profile
@@ -79,26 +76,22 @@ export async function POST(request: NextRequest) {
 
       if (profileError) {
         console.error('Profile creation error:', profileError)
-        // Don't fail the request if profile creation fails - user is created
+        // Don't fail the request if profile creation fails
       }
     }
 
-    return NextResponse.json(
+    return successResponse(
       {
-        success: true,
-        message: 'Account created successfully. Please check your email to confirm your signup.',
         user: data.user,
+        message: 'Account created successfully. Please check your email to confirm.',
       },
-      { status: 201 }
+      201
     )
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return statusCode === 400
+      ? validationErrorResponse(message, details)
+      : errorResponse(message, statusCode, details)
   }
 }

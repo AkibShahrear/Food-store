@@ -1,5 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  successResponse,
+  errorResponse,
+} from '@/lib/api/responses'
+import { getErrorInfo } from '@/lib/api/errors'
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -25,24 +30,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Logout error:', error)
-      return NextResponse.json(
-        { error: 'Failed to logout' },
-        { status: 400 }
-      )
+      throw new Error(error.message || 'Failed to logout')
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Logged out successfully',
-    })
+    return successResponse({ message: 'Logged out successfully' })
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return errorResponse(message, statusCode, details)
   }
 }

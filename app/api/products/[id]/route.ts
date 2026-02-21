@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-
-// Validate UUID format
-function isValidUUID(uuid: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  return uuidRegex.test(uuid)
-}
+import {
+  successResponse,
+  validationErrorResponse,
+  notFoundResponse,
+  errorResponse,
+} from '@/lib/api/responses'
+import {
+  isValidUUID,
+  handleDatabaseError,
+  getErrorInfo,
+} from '@/lib/api/errors'
 
 // Initialize Supabase client
 function getSupabaseClient() {
@@ -32,10 +37,7 @@ export async function GET(
 
     // Validate UUID format
     if (!isValidUUID(id)) {
-      return NextResponse.json(
-        { error: 'Invalid product ID format' },
-        { status: 400 }
-      )
+      return validationErrorResponse('Invalid product ID format')
     }
 
     const supabase = getSupabaseClient()
@@ -48,17 +50,8 @@ export async function GET(
       .single()
 
     if (productError) {
-      if (productError.code === 'PGRST116') {
-        return NextResponse.json(
-          { error: 'Product not found' },
-          { status: 404 }
-        )
-      }
       console.error('Database error:', productError)
-      return NextResponse.json(
-        { error: 'Failed to fetch product', details: productError.message },
-        { status: 500 }
-      )
+      throw handleDatabaseError(productError)
     }
 
     // Fetch product ratings
@@ -79,26 +72,20 @@ export async function GET(
         ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(1)
         : null
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...product,
-        ratings: {
-          average: averageRating,
-          count: ratings?.length || 0,
-          reviews: ratings || [],
-        },
+    return successResponse({
+      ...product,
+      ratings: {
+        average: averageRating,
+        count: ratings?.length || 0,
+        reviews: ratings || [],
       },
     })
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return statusCode === 400
+      ? validationErrorResponse(message, details)
+      : errorResponse(message, statusCode, details)
   }
 }
 
@@ -115,10 +102,7 @@ export async function PATCH(
 
     // Validate UUID format
     if (!isValidUUID(id)) {
-      return NextResponse.json(
-        { error: 'Invalid product ID format' },
-        { status: 400 }
-      )
+      return validationErrorResponse('Invalid product ID format')
     }
 
     const supabase = getSupabaseClient()
@@ -126,10 +110,7 @@ export async function PATCH(
 
     // Validate price if provided
     if (body.price !== undefined && (typeof body.price !== 'number' || body.price < 0)) {
-      return NextResponse.json(
-        { error: 'Price must be a positive number' },
-        { status: 400 }
-      )
+      return validationErrorResponse('Price must be a positive number')
     }
 
     // Update product
@@ -141,33 +122,17 @@ export async function PATCH(
       .single()
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json(
-          { error: 'Product not found' },
-          { status: 404 }
-        )
-      }
       console.error('Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to update product', details: error.message },
-        { status: 500 }
-      )
+      throw handleDatabaseError(error)
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Product updated successfully',
-      data,
-    })
+    return successResponse(data)
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return statusCode === 400
+      ? validationErrorResponse(message, details)
+      : errorResponse(message, statusCode, details)
   }
 }
 
@@ -184,10 +149,7 @@ export async function DELETE(
 
     // Validate UUID format
     if (!isValidUUID(id)) {
-      return NextResponse.json(
-        { error: 'Invalid product ID format' },
-        { status: 400 }
-      )
+      return validationErrorResponse('Invalid product ID format')
     }
 
     const supabase = getSupabaseClient()
@@ -196,31 +158,16 @@ export async function DELETE(
     const { error } = await supabase.from('products').delete().eq('id', id)
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json(
-          { error: 'Product not found' },
-          { status: 404 }
-        )
-      }
       console.error('Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to delete product', details: error.message },
-        { status: 500 }
-      )
+      throw handleDatabaseError(error)
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Product deleted successfully',
-    })
+    return successResponse({ id, message: 'Product deleted successfully' })
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    return statusCode === 400
+      ? validationErrorResponse(message, details)
+      : errorResponse(message, statusCode, details)
   }
 }

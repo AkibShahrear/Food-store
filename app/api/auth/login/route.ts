@@ -1,5 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  successResponse,
+  validationErrorResponse,
+  errorResponse,
+  unauthorizedResponse,
+} from '@/lib/api/responses'
+import {
+  getErrorInfo,
+  ValidationError,
+  UnauthorizedError,
+} from '@/lib/api/errors'
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -25,10 +36,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      )
+      throw new ValidationError('Email and password are required')
     }
 
     // Sign in user
@@ -39,26 +47,22 @@ export async function POST(request: NextRequest) {
 
     if (signInError) {
       console.error('Login error:', signInError)
-      return NextResponse.json(
-        { error: signInError.message || 'Invalid email or password' },
-        { status: 401 }
-      )
+      throw new UnauthorizedError(signInError.message || 'Invalid email or password')
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Logged in successfully',
+    return successResponse({
       user: data.user,
       session: data.session,
     })
   } catch (err) {
     console.error('API error:', err)
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    const { message, statusCode, details } = getErrorInfo(err)
+    if (statusCode === 400) {
+      return validationErrorResponse(message, details)
+    } else if (statusCode === 401) {
+      return unauthorizedResponse(message)
+    } else {
+      return errorResponse(message, statusCode, details)
+    }
   }
 }
