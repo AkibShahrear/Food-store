@@ -1,0 +1,33 @@
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+
+# file
+*.log
+*.tmp
+*.cache
+*.bak
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+node_modules/
+dist/
+build/
+coverage/
+*.zip
+*.tar.gz
+*.7z
+*.md
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+*.mdc

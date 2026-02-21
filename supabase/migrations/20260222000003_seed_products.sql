@@ -1,7 +1,8 @@
--- Seed data for food store database
--- Insert sample products
+-- Seed initial product data
+DELETE FROM products WHERE TRUE;
 
-INSERT INTO products (name, description, price, image_url, category, stock, calories, spicy_level) VALUES
+INSERT INTO products (name, description, price, image_url, category, stock, calories, spicy_level) 
+VALUES
 ('Margherita Pizza', 'Classic pizza with fresh mozzarella, tomatoes, and basil', 12.99, '/images/margherita.jpg', 'Pizza', 50, 250, 'Mild'),
 ('Spicy Wings', 'Crispy chicken wings with hot sauce', 8.99, '/images/wings.jpg', 'Appetizers', 100, 180, 'Hot'),
 ('Caesar Salad', 'Fresh romaine lettuce with caesar dressing', 9.99, '/images/caesar.jpg', 'Salads', 40, 150, 'Mild'),
@@ -27,7 +28,3 @@ INSERT INTO products (name, description, price, image_url, category, stock, calo
 ('Fish & Chips', 'Crispy battered fish with golden chips', 11.99, '/images/fish_chips.jpg', 'Mains', 50, 580, 'Mild'),
 ('Pad See Ew', 'Wide noodle stir-fry with soy sauce and chicken', 10.99, '/images/pad_see_ew.jpg', 'Noodles', 60, 380, 'Medium'),
 ('Spring Rolls', 'Fresh or fried rolls with vegetables and protein', 7.99, '/images/spring_rolls.jpg', 'Appetizers', 75, 150, 'Mild');
-
--- Log completion
-SELECT 'Seeding complete!' AS message;
-
